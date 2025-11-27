@@ -1,76 +1,72 @@
 import React, { useState } from 'react';
 
-const COUNTRIES = [
-  { code: '+359', name: '🇧🇬 Bulgaria', pattern: /^\+359\d{9}$/ },
-  { code: '+30', name: '🇬🇷 Greece', pattern: /^\+30\d{10}$/ },
-  { code: '+49', name: '🇩🇪 Germany', pattern: /^\+49\d{10,11}$/ },
-  { code: '+33', name: '🇫🇷 France', pattern: /^\+33\d{9}$/ },
-  { code: '+39', name: '🇮🇹 Italy', pattern: /^\+39\d{10}$/ },
-  { code: '+34', name: '🇪🇸 Spain', pattern: /^\+34\d{9}$/ },
-  { code: '+41', name: '🇨🇭 Switzerland', pattern: /^\+41\d{9}$/ },
-  { code: '+43', name: '🇦🇹 Austria', pattern: /^\+43\d{10,11}$/ },
-  { code: '+44', name: '🇬🇧 UK', pattern: /^\+44\d{10}$/ },
-];
+// Простa phone input с автозапълване на +359 за България
+export default function PhoneInput({ value, onChange, placeholder = "+359 89 917 5548" }) {
+  const [country, setCountry] = useState('BG');
 
-export default function PhoneInput({ value, onChange, placeholder = '' }) {
-  const [country, setCountry] = useState('+359');
-
-  const handlePhoneChange = (e) => {
-    let val = e.target.value.replace(/\s/g, '');
-    
-    // Auto-format phone with spaces
-    if (val.length > 0) {
-      // Remove non-digits except the + at start
-      val = val.replace(/[^\d+]/g, '');
-      
-      // Format based on country
-      if (country === '+359' && val.length >= 3) {
-        // +359 89 917 5548
-        val = `${country} ${val.slice(3, 5)} ${val.slice(5, 8)} ${val.slice(8, 12)}`.trim();
-      } else if (val.startsWith(country)) {
-        // Keep country code + spaces
-        val = `${country} ${val.slice(country.length)}`;
-      }
-    }
-
-    onChange(val);
+  const countryData = {
+    BG: { name: 'България', code: '+359' },
+    GR: { name: 'Гърция', code: '+30' },
+    RO: { name: 'Румъния', code: '+40' },
+    RS: { name: 'Сърбия', code: '+381' },
+    TR: { name: 'Турция', code: '+90' },
   };
 
   const handleCountryChange = (e) => {
     const newCountry = e.target.value;
     setCountry(newCountry);
-    // Reset phone when changing country
-    onChange('');
+    const newCode = countryData[newCountry].code;
+    
+    // Ако вече има текст, не го менять - само добави кода ако не е там
+    if (!value.startsWith('+')) {
+      onChange(newCode + ' ');
+    }
   };
 
+  const handlePhoneChange = (e) => {
+    let input = e.target.value;
+    
+    // Премахни всички символи освен + и цифри
+    input = input.replace(/[^\d+\s\-()]/g, '');
+    
+    // Максимум 15 символа (включително разделители)
+    if (input.replace(/\D/g, '').length > 15) {
+      return;
+    }
+    
+    onChange(input);
+  };
+
+  const isValid = value && value.replace(/\D/g, '').length >= 9;
+
   return (
-    <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-      <div style={{ flex: '0 0 120px' }}>
-        <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#6b4423', fontSize: '14px' }}>
-          🌍 Държава
-        </label>
-        <select 
-          value={country} 
+    <div className="form-group">
+      <label>📱 Телефонен номер</label>
+      
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+        <select
+          value={country}
           onChange={handleCountryChange}
           style={{
-            width: '100%',
-            padding: '12px 14px',
-            border: '2px solid #e8dfd5',
-            borderRadius: '8px',
-            background: '#faf7f2',
-            color: '#3d3d3d',
-            cursor: 'pointer'
+            padding: '8px 12px',
+            borderRadius: '6px',
+            border: '1px solid var(--color-border)',
+            backgroundColor: 'var(--color-surface)',
+            color: 'var(--color-text)',
+            fontFamily: 'var(--font-family-base)',
+            cursor: 'pointer',
+            minWidth: '140px'
           }}
         >
-          {COUNTRIES.map(c => (
-            <option key={c.code} value={c.code}>{c.name}</option>
+          {Object.entries(countryData).map(([code, data]) => (
+            <option key={code} value={code}>
+              {data.name} {data.code}
+            </option>
           ))}
         </select>
       </div>
-      <div style={{ flex: 1 }}>
-        <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#6b4423', fontSize: '14px' }}>
-          📱 Телефон
-        </label>
+
+      <div style={{ position: 'relative' }}>
         <input
           type="tel"
           value={value}
@@ -78,18 +74,45 @@ export default function PhoneInput({ value, onChange, placeholder = '' }) {
           placeholder={placeholder}
           style={{
             width: '100%',
-            padding: '12px 14px',
-            border: '2px solid #e8dfd5',
-            borderRadius: '8px',
-            background: '#faf7f2',
-            color: '#3d3d3d',
-            fontSize: '14px',
-            fontFamily: 'inherit',
-            transition: 'all 0.3s',
-            boxSizing: 'border-box'
+            padding: '12px 40px 12px 12px',
+            borderRadius: '6px',
+            border: `1px solid ${value && !isValid ? 'var(--color-error)' : 'var(--color-border)'}`,
+            backgroundColor: 'var(--color-surface)',
+            color: 'var(--color-text)',
+            fontFamily: 'var(--font-family-base)',
+            fontSize: 'var(--font-size-md)',
+            transition: 'all 150ms ease'
           }}
         />
+        
+        {value && (
+          <span
+            style={{
+              position: 'absolute',
+              right: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              fontSize: '18px',
+              cursor: 'default'
+            }}
+          >
+            {isValid ? '✓' : '⚠️'}
+          </span>
+        )}
       </div>
+
+      {value && !isValid && (
+        <small
+          style={{
+            color: 'var(--color-error)',
+            display: 'block',
+            marginTop: '4px',
+            fontSize: 'var(--font-size-xs)'
+          }}
+        >
+          Минимум 9 цифри след кода на страната
+        </small>
+      )}
     </div>
   );
 }
