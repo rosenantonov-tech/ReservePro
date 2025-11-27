@@ -1,10 +1,10 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, query, where, getDocs, updateDoc, doc, deleteDoc, onSnapshot } from 'firebase/firestore';
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from 'firebase/auth';
 
 // PASTE YOUR FIREBASE CONFIG HERE
 const firebaseConfig = {
-  apiKey: "AIzaSyDkLRAx-wGI2jSXcfNKYSp9ND1tqxy0e7M", 
+  apiKey: "AIzaSyDkLRAx-wGI2jSXcfNKYSp9ND1tqxy0e7M",
   authDomain: "restaurantmanager-e1319.firebaseapp.com",
   projectId: "restaurantmanager-e1319",
   storageBucket: "restaurantmanager-e1319.appspot.com",
@@ -16,6 +16,55 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+
+// Enable persistent login (remembers user even after closing browser)
+setPersistence(auth, browserLocalPersistence)
+  .catch((error) => {
+    console.error('Persistence error:', error);
+  });
+
+// ===== AUTH FUNCTIONS =====
+
+// Sign Up (Create New Account)
+export const signUpManager = async (email, password) => {
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    return userCredential.user;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Sign In (Login)
+export const signInManager = async (email, password) => {
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    return userCredential.user;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Sign Out
+export const signOutManager = async () => {
+  try {
+    await signOut(auth);
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Listen for Auth State Changes (auto-login if session exists)
+export const onAuthChange = (callback) => {
+  return onAuthStateChanged(auth, (user) => {
+    callback(user);
+  });
+};
+
+// Get Current User
+export const getCurrentUser = () => {
+  return auth.currentUser;
+};
 
 // ===== FIRESTORE FUNCTIONS =====
 
@@ -141,13 +190,4 @@ export const subscribeToReservations = (restaurantName, callback) => {
   });
 
   return unsubscribe;
-};
-
-// Auth Functions
-export const loginManager = (email, password) => {
-  return signInWithEmailAndPassword(auth, email, password);
-};
-
-export const logoutManager = () => {
-  return signOut(auth);
 };

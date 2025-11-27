@@ -9,14 +9,21 @@ import {
   updateReservationStatus,
   deleteReservation,
   subscribeToReservations,
-  loginManager
+  signUpManager,
+  signInManager,
+  signOutManager,
+  onAuthChange,
+  getCurrentUser
 } from './firebase';
 
 export default function App() {
-  const [screen, setScreen] = useState('login'); // login, dashboard, add-reservation, client-lookup
+  const [screen, setScreen] = useState('loading'); // loading, auth, dashboard, add-reservation, client-lookup
+  const [authTab, setAuthTab] = useState('signin'); // signin or signup
+  const [user, setUser] = useState(null);
   const [restaurantName, setRestaurantName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [reservations, setReservations] = useState([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -31,17 +38,105 @@ export default function App() {
   const [description, setDescription] = useState('');
   const [selectedClient, setSelectedClient] = useState(null);
 
-  // Login handler
-  const handleLogin = async (e) => {
+  // Check if user is already logged in on app load
+  useEffect(() => {
+    const unsubscribe = onAuthChange((currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        setScreen('dashboard');
+      } else {
+        setUser(null);
+        setScreen('auth');
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Handle Sign Up
+  const handleSignUp = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
+
+    if (password !== confirmPassword) {
+      setError('Паролите не съвпадат');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Паролата трябва да е поне 6 символа');
+      return;
+    }
+
+    if (!restaurantName.trim()) {
+      setError('Въведете име на ресторант');
+      return;
+    }
+
     try {
-      await loginManager(email, password);
-      setScreen('dashboard');
+      await signUpManager(email, password);
+      setSuccess('✓ Регистрацията е успешна!');
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
+      // Auto-login after signup
+      setAuthTab('signin');
+      setTimeout(() => {
+        setSuccess('');
+      }, 2000);
+    } catch (err) {
+      if (err.code === 'auth/email-already-in-use') {
+        setError('Този имейл вече е регистриран');
+      } else if (err.code === 'auth/invalid-email') {
+        setError('Невалиден имейл адрес');
+      } else {
+        setError('Грешка при регистрация: ' + err.message);
+      }
+    }
+  };
+
+  // Handle Sign In
+  const handleSignIn = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (!restaurantName.trim()) {
+      setError('Въведете име на ресторант');
+      return;
+    }
+
+    try {
+      await signInManager(email, password);
+      setSuccess('✓ Успешен вход!');
+      setEmail('');
+      setPassword('');
+      // Dashboard loads automatically via onAuthChange
+    } catch (err) {
+      if (err.code === 'auth/user-not-found') {
+        setError('Потребител не намерен');
+      } else if (err.code === 'auth/wrong-password') {
+        setError('Неправилна парола');
+      } else if (err.code === 'auth/invalid-email') {
+        setError('Невалиден имейл адрес');
+      } else {
+        setError('Грешка при вход: ' + err.message);
+      }
+    }
+  };
+
+  // Handle Sign Out
+  const handleSignOut = async () => {
+    try {
+      await signOutManager();
+      setUser(null);
+      setScreen('auth');
+      setRestaurantName('');
       setEmail('');
       setPassword('');
     } catch (err) {
-      setError('Грешка при вход: ' + err.message);
+      setError('Грешка при изход: ' + err.message);
     }
   };
 
@@ -121,6 +216,7 @@ export default function App() {
       setSelectedClient(null);
       setTime('19:30');
       setDate(new Date().toISOString().split('T')[0]);
+      setScreen('dashboard');
     } catch (err) {
       setError('Грешка: ' + err.message);
     }
@@ -150,43 +246,129 @@ export default function App() {
 
   // ===== SCREENS =====
 
-  if (screen === 'login') {
+  if (screen === 'loading') {
     return (
-      <div className="container login-screen">
-        <div className="login-box">
-          <h1>🍽️ Управление Резервации</h1>
-          <form onSubmit={handleLogin}>
-            <div className="form-group">
-              <label>Email (мениджър)</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="manager@restaurant.bg"
-              />
-            </div>
-            <div className="form-group">
-              <label>Парола</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Парола"
-              />
-            </div>
-            <div className="form-group">
-              <label>Име на ресторант</label>
-              <input
-                type="text"
-                value={restaurantName}
-                onChange={(e) => setRestaurantName(e.target.value)}
-                placeholder="Име на ресторант"
-              />
-            </div>
-            {error && <div className="error">{error}</div>}
-            <button type="submit" className="btn btn-primary">Вход</button>
-          </form>
-          <p className="hint">Используйте любой email и пароль для регистрации</p>
+      <div className="container loading-screen">
+        <div className="loading">
+          <h1>🍽️ ReservePro</h1>
+          <p>Зареждане...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === 'auth') {
+    return (
+      <div className="container auth-screen">
+        <div className="auth-box">
+          <h1>🍽️ ReservePro</h1>
+          
+          <div className="auth-tabs">
+            <button
+              className={`tab ${authTab === 'signin' ? 'active' : ''}`}
+              onClick={() => {
+                setAuthTab('signin');
+                setError('');
+                setSuccess('');
+              }}
+            >
+              Вход
+            </button>
+            <button
+              className={`tab ${authTab === 'signup' ? 'active' : ''}`}
+              onClick={() => {
+                setAuthTab('signup');
+                setError('');
+                setSuccess('');
+              }}
+            >
+              Регистрация
+            </button>
+          </div>
+
+          {authTab === 'signin' ? (
+            <form onSubmit={handleSignIn}>
+              <div className="form-group">
+                <label>Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Парола</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Парола"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Име на ресторант</label>
+                <input
+                  type="text"
+                  value={restaurantName}
+                  onChange={(e) => setRestaurantName(e.target.value)}
+                  placeholder="Име на вашия ресторант"
+                  required
+                />
+              </div>
+              {error && <div className="error">{error}</div>}
+              {success && <div className="success">{success}</div>}
+              <button type="submit" className="btn btn-primary">Вход</button>
+            </form>
+          ) : (
+            <form onSubmit={handleSignUp}>
+              <div className="form-group">
+                <label>Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Парола (минимум 6 символа)</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Парола"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Потвърдете парола</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Повторете парола"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Име на ресторант</label>
+                <input
+                  type="text"
+                  value={restaurantName}
+                  onChange={(e) => setRestaurantName(e.target.value)}
+                  placeholder="Име на вашия ресторант"
+                  required
+                />
+              </div>
+              {error && <div className="error">{error}</div>}
+              {success && <div className="success">{success}</div>}
+              <button type="submit" className="btn btn-primary">Регистрирай се</button>
+            </form>
+          )}
         </div>
       </div>
     );
@@ -196,9 +378,11 @@ export default function App() {
     return (
       <div className="container dashboard">
         <header className="header">
-          <h1>📋 Резервации - {restaurantName}</h1>
-          <p>{new Date().toLocaleDateString('bg-BG')}</p>
-          <button className="btn btn-secondary" onClick={() => setScreen('login')}>Изход</button>
+          <div>
+            <h1>📋 Резервации - {restaurantName}</h1>
+            <p>{new Date().toLocaleDateString('bg-BG')}</p>
+          </div>
+          <button className="btn btn-secondary" onClick={handleSignOut}>Изход</button>
         </header>
 
         <div className="button-group">
