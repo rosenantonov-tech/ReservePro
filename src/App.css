@@ -738,7 +738,7 @@ select.form-control {
 }
 
 /* END PERPLEXITY DESIGN SYSTEM */
-```css
+css
 /* This stylesheet has been modified to adhere to the Perplexity design system */
 
 :root {
@@ -1669,4 +1669,3 @@ a:hover {
   outline: var(--focus-outline);
   outline-offset: 2px;
 }
-```
