@@ -17,6 +17,7 @@ import {
 } from './firebase';
 
 
+
 export default function App() {
   const [screen, setScreen] = useState('loading');
   const [authTab, setAuthTab] = useState('signin');
@@ -26,13 +27,16 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+
   const [reservations, setReservations] = useState([]);
   const [filteredReservations, setFilteredReservations] = useState([]);
   const [reservationsLoading, setReservationsLoading] = useState(false);
 
+
   const [searchTerm, setSearchTerm] = useState('');
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(false);
+
 
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
@@ -43,12 +47,15 @@ export default function App() {
   const [description, setDescription] = useState('');
   const [selectedClient, setSelectedClient] = useState(null);
 
+
   const getTodayIso = () => new Date().toISOString().split('T')[0];
+
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
   };
+
 
   const resetReservationForm = () => {
     setClientName('');
@@ -61,6 +68,7 @@ export default function App() {
     setPartySize(4);
   };
 
+
   const getTodaySummary = () => {
     const confirmed = reservations.filter(r => r.status === 'confirmed').length;
     const pending = reservations.filter(r => r.status === 'pending').length;
@@ -68,7 +76,9 @@ export default function App() {
     return { confirmed, pending, noshow, total: reservations.length };
   };
 
+
   const getMinDate = () => getTodayIso();
+
 
   // Load restaurant name from localStorage on mount
   useEffect(() => {
@@ -78,6 +88,7 @@ export default function App() {
       setRestaurantName(saved);
     }
   }, []);
+
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -98,6 +109,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [screen]);
 
+
   // Auth state listener
   useEffect(() => {
     const unsubscribe = onAuthChange((currentUser) => {
@@ -111,6 +123,7 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
+
 
   // Subscribe към резервации
   useEffect(() => {
@@ -145,6 +158,7 @@ export default function App() {
     }
   }, [screen, restaurantName]);
 
+
   // Real-time филтър
   useEffect(() => {
     if (!searchTerm.trim()) {
@@ -160,6 +174,7 @@ export default function App() {
     }
   }, [searchTerm, reservations]);
 
+
   const handleSignUp = async (e) => {
     e.preventDefault();
     if (password !== confirmPassword) {
@@ -170,15 +185,12 @@ export default function App() {
       showToast('❌ Паролата трябва да е поне 6 символа', 'error');
       return;
     }
-    if (!restaurantName.trim()) {
-      showToast('❌ Въведете име на ресторант', 'error');
-      return;
-    }
     try {
       setLoading(true);
       await signUpManager(email, password);
-      localStorage.setItem('restaurantName', restaurantName);
-      console.log('Saved restaurant to localStorage:', restaurantName);
+      if (restaurantName.trim()) {
+        localStorage.setItem('restaurantName', restaurantName);
+      }
       showToast('✓ Регистрацията е успешна!', 'success');
       setEmail('');
       setPassword('');
@@ -191,17 +203,15 @@ export default function App() {
     }
   };
 
+
   const handleSignIn = async (e) => {
     e.preventDefault();
-    if (!restaurantName.trim()) {
-      showToast('❌ Въведете име на ресторант', 'error');
-      return;
-    }
     try {
       setLoading(true);
       await signInManager(email, password);
-      localStorage.setItem('restaurantName', restaurantName);
-      console.log('Saved restaurant to localStorage:', restaurantName);
+      if (restaurantName.trim()) {
+        localStorage.setItem('restaurantName', restaurantName);
+      }
       showToast('✓ Успешен вход!', 'success');
       setEmail('');
       setPassword('');
@@ -211,6 +221,7 @@ export default function App() {
       setLoading(false);
     }
   };
+
 
   const handleSignOut = async () => {
     try {
@@ -229,6 +240,7 @@ export default function App() {
       showToast('❌ Грешка при изход', 'error');
     }
   };
+
 
   const handlePhoneLookup = async () => {
     if (!clientPhone) {
@@ -256,6 +268,7 @@ export default function App() {
       setLoading(false);
     }
   };
+
 
   const handleAddReservation = async (e) => {
     e.preventDefault();
@@ -305,6 +318,7 @@ export default function App() {
     }
   };
 
+
   const handleStatusChange = async (reservationId, newStatus) => {
     try {
       await updateReservationStatus(reservationId, newStatus);
@@ -313,6 +327,7 @@ export default function App() {
       showToast('❌ Грешка: ' + err.message, 'error');
     }
   };
+
 
   const handleDelete = async (reservationId) => {
     if (window.confirm('Сигурни ли сте че искате да изтриете резервацията?')) {
@@ -325,6 +340,7 @@ export default function App() {
     }
   };
 
+
   if (screen === 'loading') {
     return (
       <div className="container loading-screen">
@@ -336,6 +352,7 @@ export default function App() {
       </div>
     );
   }
+
 
   if (screen === 'auth') {
     return (
@@ -384,13 +401,12 @@ export default function App() {
                 />
               </div>
               <div className="form-group">
-                <label>🏪 Име на ресторант</label>
+                <label>🏪 Име на ресторант (опционално)</label>
                 <input
                   type="text"
                   value={restaurantName}
                   onChange={(e) => setRestaurantName(e.target.value)}
                   placeholder="Име на вашия ресторант"
-                  required
                 />
               </div>
               <button type="submit" className="btn btn-primary" disabled={loading}>
@@ -431,13 +447,12 @@ export default function App() {
                 />
               </div>
               <div className="form-group">
-                <label>🏪 Име на ресторант</label>
+                <label>🏪 Име на ресторант (опционално)</label>
                 <input
                   type="text"
                   value={restaurantName}
                   onChange={(e) => setRestaurantName(e.target.value)}
                   placeholder="Име на вашия ресторант"
-                  required
                 />
               </div>
               <button type="submit" className="btn btn-primary" disabled={loading}>
@@ -458,6 +473,7 @@ export default function App() {
     );
   }
 
+
   if (screen === 'dashboard') {
     const summary = getTodaySummary();
     return (
@@ -465,7 +481,7 @@ export default function App() {
         {toast && <Toast {...toast} onClose={() => setToast(null)} />}
         <header className="header">
           <div className="header-left">
-            <h1>📋 {restaurantName}</h1>
+            <h1>📋 {restaurantName || 'ReservePro'}</h1>
             <p className="header-date">
               {new Date().toLocaleDateString('bg-BG', {
                 weekday: 'long',
@@ -663,6 +679,7 @@ export default function App() {
     );
   }
 
+
   if (screen === 'add-reservation') {
     return (
       <div className="container add-reservation">
@@ -807,6 +824,7 @@ export default function App() {
     );
   }
 
+
   if (screen === 'client-lookup') {
     return (
       <div className="container client-lookup">
@@ -916,6 +934,7 @@ export default function App() {
       </div>
     );
   }
+
 
   return null;
 }
