@@ -91,14 +91,12 @@ export const getCurrentUser = () => {
 
 export const addReservation = async (data) => {
   try {
-    // Ensure restaurant_name is not empty
-    if (!data.restaurant_name || data.restaurant_name.trim() === '') {
-      throw new Error('Restaurant name is required');
-    }
-    
+    // Use provided restaurant_name or default placeholder
+    const restaurantName = data.restaurant_name?.trim() || 'Default Restaurant';
+
     const docRef = await addDoc(collection(db, 'reservations'), {
       ...data,
-      restaurant_name: data.restaurant_name.trim(),
+      restaurant_name: restaurantName,
       created_at: new Date(),
       status: 'pending',
     });
