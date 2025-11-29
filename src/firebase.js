@@ -184,17 +184,14 @@ export const deleteReservation = async (reservationId) => {
   }
 };
 
-// FIXED: Get ALL reservations for a restaurant (no ordering needed to avoid index requirement)
+// Get ALL reservations for a restaurant (no date filter - gets all)
 export const subscribeToReservations = (restaurantName, callback) => {
-  if (!restaurantName || restaurantName.trim() === '') {
-    console.warn('subscribeToReservations called with empty restaurantName');
-    callback([]);
-    return () => {};
-  }
+  // Use default restaurant if empty
+  const effectiveRestaurantName = restaurantName?.trim() || 'Default Restaurant';
 
   const q = query(
     collection(db, 'reservations'),
-    where('restaurant_name', '==', restaurantName.trim())
+    where('restaurant_name', '==', effectiveRestaurantName)
   );
 
   const unsubscribe = onSnapshot(
@@ -212,7 +209,7 @@ export const subscribeToReservations = (restaurantName, callback) => {
         return (a.time || '').localeCompare(b.time || '');
       });
 
-      console.log(`Loaded ${reservations.length} reservations for ${restaurantName}`);
+      console.log(`Loaded ${reservations.length} reservations for ${effectiveRestaurantName}`);
       callback(reservations);
     },
     (error) => {
@@ -226,9 +223,11 @@ export const subscribeToReservations = (restaurantName, callback) => {
 
 export const getAllReservations = async (restaurantName) => {
   try {
+    const effectiveRestaurantName = restaurantName?.trim() || 'Default Restaurant';
+    
     const q = query(
       collection(db, 'reservations'),
-      where('restaurant_name', '==', restaurantName)
+      where('restaurant_name', '==', effectiveRestaurantName)
     );
     const querySnapshot = await getDocs(q);
     const reservations = [];
