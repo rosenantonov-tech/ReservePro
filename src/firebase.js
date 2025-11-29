@@ -10,6 +10,7 @@ import {
   doc,
   deleteDoc,
   onSnapshot,
+  orderBy,
 } from 'firebase/firestore';
 import {
   getAuth,
@@ -179,17 +180,12 @@ export const deleteReservation = async (reservationId) => {
   }
 };
 
+// UPDATED: Now shows ALL reservations (not just today)
 export const subscribeToReservations = (restaurantName, callback) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
   const q = query(
     collection(db, 'reservations'),
     where('restaurant_name', '==', restaurantName),
-    where('date', '>=', today),
-    where('date', '<', tomorrow)
+    orderBy('date', 'desc')
   );
 
   const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -203,7 +199,7 @@ export const subscribeToReservations = (restaurantName, callback) => {
       if (a.date === b.date) {
         return (a.time || '').localeCompare(b.time || '');
       }
-      return a.date.localeCompare(b.date);
+      return b.date.localeCompare(a.date);
     });
 
     callback(reservations);
@@ -228,4 +224,4 @@ export const getAllReservations = async (restaurantName) => {
     console.error('Error getting all reservations:', error);
     throw error;
   }
-};
+}
