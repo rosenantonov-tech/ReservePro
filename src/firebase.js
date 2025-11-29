@@ -10,7 +10,6 @@ import {
   doc,
   deleteDoc,
   onSnapshot,
-  orderBy,
 } from 'firebase/firestore';
 import {
   getAuth,
@@ -92,11 +91,18 @@ export const getCurrentUser = () => {
 
 export const addReservation = async (data) => {
   try {
+    // Ensure restaurant_name is not empty
+    if (!data.restaurant_name || data.restaurant_name.trim() === '') {
+      throw new Error('Restaurant name is required');
+    }
+    
     const docRef = await addDoc(collection(db, 'reservations'), {
       ...data,
+      restaurant_name: data.restaurant_name.trim(),
       created_at: new Date(),
       status: 'pending',
     });
+    console.log('Reservation added with ID:', docRef.id);
     return docRef.id;
   } catch (error) {
     console.error('Error adding reservation:', error);
@@ -180,30 +186,42 @@ export const deleteReservation = async (reservationId) => {
   }
 };
 
-// UPDATED: Now shows ALL reservations (not just today)
+// FIXED: Get ALL reservations for a restaurant (no ordering needed to avoid index requirement)
 export const subscribeToReservations = (restaurantName, callback) => {
+  if (!restaurantName || restaurantName.trim() === '') {
+    console.warn('subscribeToReservations called with empty restaurantName');
+    callback([]);
+    return () => {};
+  }
+
   const q = query(
     collection(db, 'reservations'),
-    where('restaurant_name', '==', restaurantName),
-    orderBy('date', 'desc')
+    where('restaurant_name', '==', restaurantName.trim())
   );
 
-  const unsubscribe = onSnapshot(q, (querySnapshot) => {
-    const reservations = [];
-    querySnapshot.forEach((doc) => {
-      reservations.push({ id: doc.id, ...doc.data() });
-    });
+  const unsubscribe = onSnapshot(
+    q,
+    (querySnapshot) => {
+      const reservations = [];
+      querySnapshot.forEach((doc) => {
+        reservations.push({ id: doc.id, ...doc.data() });
+      });
 
-    // Sort by date and time
-    reservations.sort((a, b) => {
-      if (a.date === b.date) {
+      // Sort by date DESC, then by time
+      reservations.sort((a, b) => {
+        const dateCompare = (b.date || '').localeCompare(a.date || '');
+        if (dateCompare !== 0) return dateCompare;
         return (a.time || '').localeCompare(b.time || '');
-      }
-      return b.date.localeCompare(a.date);
-    });
+      });
 
-    callback(reservations);
-  });
+      console.log(`Loaded ${reservations.length} reservations for ${restaurantName}`);
+      callback(reservations);
+    },
+    (error) => {
+      console.error('Error in subscribeToReservations:', error);
+      callback([]);
+    }
+  );
 
   return unsubscribe;
 };
