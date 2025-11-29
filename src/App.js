@@ -55,6 +55,8 @@ export default function App() {
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
+    // Auto-close after 4 seconds
+    setTimeout(() => setToast(null), 4000);
   };
 
   const resetReservationForm = () => {
@@ -80,18 +82,18 @@ export default function App() {
 
   // ===== EFFECTS =====
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts (улучшено)
   useEffect(() => {
     const handleKeyPress = (e) => {
-      if (e.ctrlKey || e.metaKey) {
+      if ((e.ctrlKey || e.metaKey) && screen !== 'auth') {
         if (e.key === 'n') {
           e.preventDefault();
           setScreen('add-reservation');
+          showToast('💡 Нова резервация (Ctrl+N)', 'info');
         } else if (e.key === 'k') {
           e.preventDefault();
           setScreen('client-lookup');
-        } else if (e.key === 's' && screen !== 'auth') {
-          e.preventDefault();
+          showToast('💡 Търси клиент (Ctrl+K)', 'info');
         }
       }
     };
@@ -115,23 +117,20 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Subscribe към резервации (подобрено)
+  // Subscribe към резервации
   useEffect(() => {
     if (screen === 'dashboard' && restaurantName) {
       setReservationsLoading(true);
 
       const unsubscribe = subscribeToReservations(restaurantName, (res) => {
-        // Нормализираме датата да е винаги 'YYYY-MM-DD' и сортираме по час
         const normalized = res
           .map((r) => {
             let normalizedDate;
-
             if (!r.date) {
               normalizedDate = getTodayIso();
             } else if (typeof r.date === 'string') {
               normalizedDate = r.date.split('T')[0];
             } else {
-              // Firestore Timestamp или JS Date
               normalizedDate = new Date(r.date).toISOString().split('T')[0];
             }
 
@@ -155,7 +154,7 @@ export default function App() {
     }
   }, [screen, restaurantName]);
 
-  // Real-time филтър (име/телефон/маса)
+  // Real-time филтър
   useEffect(() => {
     if (!searchTerm.trim()) {
       setFilteredReservations(reservations);
@@ -176,15 +175,15 @@ export default function App() {
     e.preventDefault();
 
     if (password !== confirmPassword) {
-      showToast('Паролите не съвпадат', 'error');
+      showToast('❌ Паролите не съвпадат', 'error');
       return;
     }
     if (password.length < 6) {
-      showToast('Паролата трябва да е поне 6 символа', 'error');
+      showToast('❌ Паролата трябва да е поне 6 символа', 'error');
       return;
     }
     if (!restaurantName.trim()) {
-      showToast('Въведете име на ресторант', 'error');
+      showToast('❌ Въведете име на ресторант', 'error');
       return;
     }
 
@@ -197,7 +196,7 @@ export default function App() {
       setConfirmPassword('');
       setAuthTab('signin');
     } catch (err) {
-      showToast('Грешка: ' + err.message, 'error');
+      showToast('❌ Грешка: ' + err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -207,7 +206,7 @@ export default function App() {
     e.preventDefault();
 
     if (!restaurantName.trim()) {
-      showToast('Въведете име на ресторант', 'error');
+      showToast('❌ Въведете име на ресторант', 'error');
       return;
     }
 
@@ -218,7 +217,7 @@ export default function App() {
       setEmail('');
       setPassword('');
     } catch (err) {
-      showToast('Грешка: ' + err.message, 'error');
+      showToast('❌ Грешка: ' + err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -234,9 +233,9 @@ export default function App() {
       setReservations([]);
       setFilteredReservations([]);
       setSearchTerm('');
-      showToast('Успешен изход', 'info');
+      showToast('✓ Успешен изход', 'info');
     } catch (err) {
-      showToast('Грешка при изход', 'error');
+      showToast('❌ Грешка при изход', 'error');
     }
   };
 
@@ -244,7 +243,7 @@ export default function App() {
 
   const handlePhoneLookup = async () => {
     if (!clientPhone) {
-      showToast('Въведете телефонен номер', 'error');
+      showToast('❌ Въведете телефонен номер', 'error');
       return;
     }
 
@@ -262,10 +261,10 @@ export default function App() {
         );
       } else {
         setSelectedClient(null);
-        showToast('Нов клиент', 'info');
+        showToast('ℹ️ Нов клиент', 'info');
       }
     } catch (err) {
-      showToast('Грешка: ' + err.message, 'error');
+      showToast('❌ Грешка: ' + err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -277,14 +276,13 @@ export default function App() {
     e.preventDefault();
 
     if (!clientName || !clientPhone || !date || !time || !tableNumber) {
-      showToast('Попълнете всички полета', 'error');
+      showToast('❌ Попълнете всички полета', 'error');
       return;
     }
 
-    // Лека валидация на телефон
     const phoneClean = clientPhone.replace(/\s+/g, '');
     if (phoneClean.length < 6) {
-      showToast('Телефонният номер изглежда твърде кратък', 'error');
+      showToast('❌ Телефонният номер изглежда твърде кратък', 'error');
       return;
     }
 
@@ -322,7 +320,7 @@ export default function App() {
       resetReservationForm();
       setScreen('dashboard');
     } catch (err) {
-      showToast('Грешка: ' + err.message, 'error');
+      showToast('❌ Грешка: ' + err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -333,17 +331,17 @@ export default function App() {
       await updateReservationStatus(reservationId, newStatus);
       showToast('✓ Статусът е обновен', 'success');
     } catch (err) {
-      showToast('Грешка: ' + err.message, 'error');
+      showToast('❌ Грешка: ' + err.message, 'error');
     }
   };
 
   const handleDelete = async (reservationId) => {
-    if (window.confirm('Сигурни ли сте?')) {
+    if (window.confirm('Сигурни ли сте че искате да изтриете резервацията?')) {
       try {
         await deleteReservation(reservationId);
         showToast('✓ Резервацията е изтрита', 'success');
       } catch (err) {
-        showToast('Грешка: ' + err.message, 'error');
+        showToast('❌ Грешка: ' + err.message, 'error');
       }
     }
   };
@@ -355,7 +353,8 @@ export default function App() {
       <div className="container loading-screen">
         <div className="loading">
           <h1>🍽️ ReservePro</h1>
-          <p>Зареждане...</p>
+          <p>⏳ Зареждане...</p>
+          <div className="spinner"></div>
         </div>
       </div>
     );
@@ -367,6 +366,7 @@ export default function App() {
         {toast && <Toast {...toast} onClose={() => setToast(null)} />}
         <div className="auth-box">
           <h1>🍽️ ReservePro</h1>
+          <p className="auth-subtitle">Управление на резервации за ресторанти</p>
 
           <div className="auth-tabs">
             <button
@@ -374,14 +374,14 @@ export default function App() {
               onClick={() => setAuthTab('signin')}
               type="button"
             >
-              Вход
+              🔑 Вход
             </button>
             <button
               className={`tab ${authTab === 'signup' ? 'active' : ''}`}
               onClick={() => setAuthTab('signup')}
               type="button"
             >
-              Регистрация
+              ✍️ Регистрация
             </button>
           </div>
 
@@ -395,6 +395,7 @@ export default function App() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
                   required
+                  autoFocus
                 />
               </div>
               <div className="form-group">
@@ -418,7 +419,7 @@ export default function App() {
                 />
               </div>
               <button type="submit" className="btn btn-primary" disabled={loading}>
-                {loading ? 'Зареждане...' : 'Вход'}
+                {loading ? '⏳ Влизане...' : '🔓 Вход'}
               </button>
             </form>
           ) : (
@@ -431,6 +432,7 @@ export default function App() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
                   required
+                  autoFocus
                 />
               </div>
               <div className="form-group">
@@ -464,14 +466,19 @@ export default function App() {
                 />
               </div>
               <button type="submit" className="btn btn-primary" disabled={loading}>
-                {loading ? 'Зареждане...' : 'Регистрирай се'}
+                {loading ? '⏳ Регистриране...' : '✍️ Регистрирай се'}
               </button>
             </form>
           )}
 
-          <p className="hint">
-            💡 Hint: Ctrl+N = нова резервация | Ctrl+K = търси клиент
-          </p>
+          <div className="auth-hints">
+            <p>💡 <strong>Бърз старт:</strong></p>
+            <ul>
+              <li>Ctrl+N = нова резервация</li>
+              <li>Ctrl+K = търси клиент</li>
+              <li>Местност номер = "+359 89 917 5548"</li>
+            </ul>
+          </div>
         </div>
       </div>
     );
@@ -485,9 +492,9 @@ export default function App() {
         {toast && <Toast {...toast} onClose={() => setToast(null)} />}
 
         <header className="header">
-          <div>
+          <div className="header-left">
             <h1>📋 {restaurantName}</h1>
-            <p>
+            <p className="header-date">
               {new Date().toLocaleDateString('bg-BG', {
                 weekday: 'long',
                 year: 'numeric',
@@ -496,16 +503,16 @@ export default function App() {
               })}
             </p>
           </div>
-          <button className="btn btn-secondary" onClick={handleSignOut}>
-            Изход
+          <button className="btn btn-secondary" onClick={handleSignOut} title="Изход (Ctrl+Shift+Q)">
+            👤 Изход
           </button>
         </header>
 
-        {/* SUMMARY WIDGET */}
+        {/* SUMMARY WIDGET - улучшено */}
         <div className="summary-widget">
-          <div className="summary-card">
+          <div className="summary-card summary-card-total">
             <div className="summary-number">{summary.total}</div>
-            <div className="summary-label">Резервации (заредени)</div>
+            <div className="summary-label">Всички Резервации</div>
           </div>
           <div className="summary-card success">
             <div className="summary-number">✓ {summary.confirmed}</div>
@@ -521,39 +528,43 @@ export default function App() {
           </div>
         </div>
 
-        {/* ACTION BUTTONS */}
+        {/* ACTION BUTTONS - с иконки */}
         <div className="button-group">
           <button
-            className="btn btn-primary"
+            className="btn btn-primary btn-large"
             onClick={() => {
               resetReservationForm();
               setScreen('add-reservation');
             }}
+            title="Ctrl+N"
           >
-            ➕ Нова Резервация (Ctrl+N)
+            ➕ Нова Резервация
           </button>
           <button
-            className="btn btn-secondary"
+            className="btn btn-secondary btn-large"
             onClick={() => setScreen('client-lookup')}
+            title="Ctrl+K"
           >
-            🔍 Търси Клиент (Ctrl+K)
+            🔍 Търси Клиент
           </button>
         </div>
 
-        {/* SEARCH BOX */}
+        {/* SEARCH BOX - подобрено */}
         <div className="search-box">
           <input
             type="text"
-            placeholder="🔍 Търси по име, телефон или маса..."
+            placeholder="🔍 Търси по име, телефон или маса... (напр: Greg, +359123456789, Table 5)"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
+            autoFocus
           />
           {searchTerm && (
             <button
               className="search-clear"
               onClick={() => setSearchTerm('')}
               type="button"
+              title="Изчисти търсене"
             >
               ✕
             </button>
@@ -564,29 +575,29 @@ export default function App() {
         <div className="reservations-list">
           <h2>
             {searchTerm
-              ? `Резултати: ${filteredReservations.length}`
-              : `Резервации (${filteredReservations.length})`}
+              ? `📌 Резултати: ${filteredReservations.length}`
+              : `📅 Резервации (${filteredReservations.length})`}
           </h2>
 
           {reservationsLoading ? (
             <p className="empty">⏳ Зареждане на резервациите...</p>
           ) : filteredReservations.length === 0 ? (
             <p className="empty">
-              {searchTerm ? '❌ Няма резултати' : '😴 Няма резервации'}
+              {searchTerm ? '❌ Няма резултати' : '😴 Няма резервации за днес'}
             </p>
           ) : (
             <div className="table-responsive">
               <table className="table">
                 <thead>
                   <tr>
-                    <th>📅 Дата</th>
-                    <th>⏰ Час</th>
-                    <th>👤 Име</th>
-                    <th>📱 Телефон</th>
-                    <th>👥 Брой</th>
-                    <th>🍽️ Маса</th>
-                    <th>📊 Статус</th>
-                    <th>⚙️ Действия</th>
+                    <th title="Дата на резервацията">📅 Дата</th>
+                    <th title="Час на резервацията">⏰ Час</th>
+                    <th title="Име на клиент">👤 Име</th>
+                    <th title="Телефонен номер">📱 Телефон</th>
+                    <th title="Брой хора">👥 Брой</th>
+                    <th title="Номер на маса">🍽️ Маса</th>
+                    <th title="Статус на резервацията">📊 Статус</th>
+                    <th title="Действия">⚙️ Действия</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -598,12 +609,12 @@ export default function App() {
                         {selectedClient &&
                           selectedClient.phone === res.client_phone &&
                           selectedClient.total_visits >= 10 && (
-                            <span className="vip-badge">👑</span>
+                            <span className="vip-badge">👑 VIP</span>
                           )}
                         {res.client_name}
                       </td>
-                      <td>{res.client_phone}</td>
-                      <td>{res.party_size} пл.</td>
+                      <td title={res.client_phone}>{res.client_phone}</td>
+                      <td>{res.party_size}</td>
                       <td>{res.table_number}</td>
                       <td>
                         <select
@@ -612,6 +623,7 @@ export default function App() {
                             handleStatusChange(res.id, e.target.value)
                           }
                           className="status-select"
+                          title="Промени статус"
                         >
                           <option value="pending">⏳ Чакащо</option>
                           <option value="confirmed">✓ Потвърдено</option>
@@ -624,8 +636,9 @@ export default function App() {
                           className="btn btn-small btn-danger"
                           onClick={() => handleDelete(res.id)}
                           type="button"
+                          title="Изтрий резервацията"
                         >
-                          Изтрий
+                          🗑️ Изтрий
                         </button>
                       </td>
                     </tr>
@@ -655,6 +668,7 @@ export default function App() {
             className="nav-item active"
             onClick={() => setScreen('dashboard')}
             type="button"
+            title="Начало"
           >
             📋 Начало
           </button>
@@ -665,6 +679,7 @@ export default function App() {
               setScreen('add-reservation');
             }}
             type="button"
+            title="Нова резервация"
           >
             ➕ Ново
           </button>
@@ -672,6 +687,7 @@ export default function App() {
             className="nav-item"
             onClick={() => setScreen('client-lookup')}
             type="button"
+            title="Търси клиент"
           >
             🔍 Търси
           </button>
@@ -679,6 +695,7 @@ export default function App() {
             className="nav-item"
             onClick={handleSignOut}
             type="button"
+            title="Профил"
           >
             👤 Профил
           </button>
@@ -698,8 +715,9 @@ export default function App() {
             className="btn btn-secondary"
             onClick={() => setScreen('dashboard')}
             type="button"
+            title="Назад на начало"
           >
-            ←Назад
+            ← Назад
           </button>
         </header>
 
@@ -710,8 +728,10 @@ export default function App() {
               type="text"
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
-              placeholder="Име"
+              placeholder="Например: Георги Иванов"
+              autoFocus
             />
+            <small className="helper-text">Пълното име на гостът</small>
           </div>
 
           <PhoneInput
@@ -719,6 +739,7 @@ export default function App() {
             onChange={setClientPhone}
             placeholder="+359 89 917 5548"
           />
+          <small className="helper-text">Въведете номер и натиснете "Търси клиент"</small>
 
           <button
             type="button"
@@ -726,12 +747,13 @@ export default function App() {
             onClick={handlePhoneLookup}
             style={{ marginBottom: '20px', width: '100%' }}
             disabled={loading}
+            title="Проверява дали клиентът има предишни резервации"
           >
             {loading ? '⏳ Търсене...' : '🔍 Търси клиент'}
           </button>
 
           {selectedClient && (
-            <div className="client-info">
+            <div className="client-info success-info">
               ✓ {selectedClient.name} от {selectedClient.city}
               {selectedClient.total_visits >= 10
                 ? ' 👑 VIP'
@@ -748,6 +770,7 @@ export default function App() {
                 onChange={(e) => setDate(e.target.value)}
                 min={getMinDate()}
               />
+              <small className="helper-text">Не може да е в минатото</small>
             </div>
             <div className="form-group">
               <label>⏰ Час</label>
@@ -769,6 +792,7 @@ export default function App() {
                 min="1"
                 max="20"
               />
+              <small className="helper-text">1-20 хора</small>
             </div>
             <div className="form-group">
               <label>🍽️ Маса номер</label>
@@ -776,25 +800,27 @@ export default function App() {
                 type="text"
                 value={tableNumber}
                 onChange={(e) => setTableNumber(e.target.value)}
-                placeholder="Маса 1, Маса 2..."
+                placeholder="Например: Маса 1, A3, Corner"
               />
+              <small className="helper-text">Как называте масата (напр: Маса 1, A3)</small>
             </div>
           </div>
 
           <div className="form-group">
-            <label>📝 Описание (напр. рожден ден, алергия)</label>
+            <label>📝 Специални бележки (алергия, рожден ден, и т.н.)</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Допълнителна информация"
+              placeholder="Например: Рожден ден, Хлебна алергия, VIP гост, Помолете за тиха маса..."
               rows="3"
               maxLength="200"
             />
-            <div className="char-count">{description.length}/200</div>
+            <div className="char-count">{description.length}/200 символа</div>
+            <small className="helper-text">Това ще видят служителите</small>
           </div>
 
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? '⏳ Запазване...' : '💾 Запази Резервация (Ctrl+S)'}
+          <button type="submit" className="btn btn-primary btn-large" disabled={loading}>
+            {loading ? '⏳ Запазване...' : '💾 Запази Резервация'}
           </button>
         </form>
 
@@ -845,69 +871,74 @@ export default function App() {
             onClick={() => setScreen('dashboard')}
             type="button"
           >
-            ←Назад
+            ← Назад
           </button>
         </header>
 
-        <PhoneInput
-          value={clientPhone}
-          onChange={setClientPhone}
-          placeholder="+359 89 917 5548"
-        />
+        <div className="form">
+          <PhoneInput
+            value={clientPhone}
+            onChange={setClientPhone}
+            placeholder="+359 89 917 5548"
+          />
+          <small className="helper-text">Въведете телефонния номер на клиента</small>
 
-        <button
-          className="btn btn-secondary"
-          onClick={handlePhoneLookup}
-          style={{ marginBottom: '20px', width: '100%' }}
-          disabled={loading}
-          type="button"
-        >
-          {loading ? '⏳ Търсене...' : '🔍 Търси'}
-        </button>
+          <button
+            className="btn btn-secondary"
+            onClick={handlePhoneLookup}
+            style={{ marginBottom: '20px', width: '100%' }}
+            disabled={loading}
+            type="button"
+          >
+            {loading ? '⏳ Търсене...' : '🔍 Търси'}
+          </button>
 
-        {selectedClient && (
-          <div className="client-card">
-            <div className="client-header">
-              <h2>{selectedClient.name}</h2>
-              {selectedClient.total_visits >= 10 && (
-                <span className="vip-badge-large">👑 VIP</span>
-              )}
+          {selectedClient && (
+            <div className="client-card">
+              <div className="client-header">
+                <h2>{selectedClient.name}</h2>
+                {selectedClient.total_visits >= 10 && (
+                  <span className="vip-badge-large">👑 VIP Гост</span>
+                )}
+              </div>
+              <div className="client-details">
+                <p>
+                  <strong>🌍 Град:</strong> {selectedClient.city}
+                </p>
+                <p>
+                  <strong>📱 Телефон:</strong> {selectedClient.phone}
+                </p>
+                <p>
+                  <strong>📊 Съобщения посещения:</strong> {selectedClient.total_visits}
+                </p>
+                <p>
+                  <strong>📅 Последно посещение:</strong>{' '}
+                  {selectedClient.last_visit_date
+                    ? new Date(selectedClient.last_visit_date).toLocaleDateString(
+                        'bg-BG'
+                      )
+                    : 'Няма'}
+                </p>
+                {selectedClient.special_notes && (
+                  <p>
+                    <strong>📝 Бележки:</strong> {selectedClient.special_notes}
+                  </p>
+                )}
+              </div>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setClientName(selectedClient.name);
+                  setClientPhone(selectedClient.phone);
+                  setScreen('add-reservation');
+                }}
+                type="button"
+              >
+                ➕ Нова Резервация за {selectedClient.name}
+              </button>
             </div>
-            <p>
-              <strong>🌍 Град:</strong> {selectedClient.city}
-            </p>
-            <p>
-              <strong>📱 Телефон:</strong> {selectedClient.phone}
-            </p>
-            <p>
-              <strong>📊 Посещения:</strong> {selectedClient.total_visits}
-            </p>
-            <p>
-              <strong>📅 Последно посещение:</strong>{' '}
-              {selectedClient.last_visit_date
-                ? new Date(selectedClient.last_visit_date).toLocaleDateString(
-                    'bg-BG'
-                  )
-                : 'Няма'}
-            </p>
-            {selectedClient.special_notes && (
-              <p>
-                <strong>📝 Бележки:</strong> {selectedClient.special_notes}
-              </p>
-            )}
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                setClientName(selectedClient.name);
-                setClientPhone(selectedClient.phone);
-                setScreen('add-reservation');
-              }}
-              type="button"
-            >
-              ➕ Нова Резервация за {selectedClient.name}
-            </button>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* MOBILE BOTTOM NAV */}
         <nav className="mobile-nav">
