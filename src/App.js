@@ -16,6 +16,7 @@ import {
   onAuthChange
 } from './firebase';
 
+
 export default function App() {
   const [screen, setScreen] = useState('loading');
   const [authTab, setAuthTab] = useState('signin');
@@ -25,21 +26,14 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Резервации
   const [reservations, setReservations] = useState([]);
   const [filteredReservations, setFilteredReservations] = useState([]);
   const [reservationsLoading, setReservationsLoading] = useState(false);
 
-  // Търсене
   const [searchTerm, setSearchTerm] = useState('');
-
-  // Глобален toast
   const [toast, setToast] = useState(null);
-
-  // Loading за действия (login, save, lookup и т.н.)
   const [loading, setLoading] = useState(false);
 
-  // Form states
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -49,13 +43,10 @@ export default function App() {
   const [description, setDescription] = useState('');
   const [selectedClient, setSelectedClient] = useState(null);
 
-  // ===== UTILS =====
-
   const getTodayIso = () => new Date().toISOString().split('T')[0];
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
-    // Auto-close after 4 seconds
     setTimeout(() => setToast(null), 4000);
   };
 
@@ -74,15 +65,21 @@ export default function App() {
     const confirmed = reservations.filter(r => r.status === 'confirmed').length;
     const pending = reservations.filter(r => r.status === 'pending').length;
     const noshow = reservations.filter(r => r.status === 'no-show').length;
-
     return { confirmed, pending, noshow, total: reservations.length };
   };
 
   const getMinDate = () => getTodayIso();
 
-  // ===== EFFECTS =====
+  // Load restaurant name from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('restaurantName');
+    if (saved) {
+      console.log('Loaded restaurant from localStorage:', saved);
+      setRestaurantName(saved);
+    }
+  }, []);
 
-  // Keyboard shortcuts (улучшено)
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e) => {
       if ((e.ctrlKey || e.metaKey) && screen !== 'auth') {
@@ -97,7 +94,6 @@ export default function App() {
         }
       }
     };
-
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [screen]);
@@ -113,7 +109,6 @@ export default function App() {
         setScreen('auth');
       }
     });
-
     return () => unsubscribe();
   }, []);
 
@@ -121,7 +116,6 @@ export default function App() {
   useEffect(() => {
     if (screen === 'dashboard' && restaurantName) {
       setReservationsLoading(true);
-
       const unsubscribe = subscribeToReservations(restaurantName, (res) => {
         const normalized = res
           .map((r) => {
@@ -133,7 +127,6 @@ export default function App() {
             } else {
               normalizedDate = new Date(r.date).toISOString().split('T')[0];
             }
-
             return {
               ...r,
               date: normalizedDate
@@ -145,11 +138,9 @@ export default function App() {
             }
             return a.date.localeCompare(b.date);
           });
-
         setReservations(normalized);
         setReservationsLoading(false);
       });
-
       return () => unsubscribe();
     }
   }, [screen, restaurantName]);
@@ -169,11 +160,8 @@ export default function App() {
     }
   }, [searchTerm, reservations]);
 
-  // ===== AUTH HANDLERS =====
-
   const handleSignUp = async (e) => {
     e.preventDefault();
-
     if (password !== confirmPassword) {
       showToast('❌ Паролите не съвпадат', 'error');
       return;
@@ -186,10 +174,11 @@ export default function App() {
       showToast('❌ Въведете име на ресторант', 'error');
       return;
     }
-
     try {
       setLoading(true);
       await signUpManager(email, password);
+      localStorage.setItem('restaurantName', restaurantName);
+      console.log('Saved restaurant to localStorage:', restaurantName);
       showToast('✓ Регистрацията е успешна!', 'success');
       setEmail('');
       setPassword('');
@@ -204,15 +193,15 @@ export default function App() {
 
   const handleSignIn = async (e) => {
     e.preventDefault();
-
     if (!restaurantName.trim()) {
       showToast('❌ Въведете име на ресторант', 'error');
       return;
     }
-
     try {
       setLoading(true);
       await signInManager(email, password);
+      localStorage.setItem('restaurantName', restaurantName);
+      console.log('Saved restaurant to localStorage:', restaurantName);
       showToast('✓ Успешен вход!', 'success');
       setEmail('');
       setPassword('');
@@ -226,6 +215,8 @@ export default function App() {
   const handleSignOut = async () => {
     try {
       await signOutManager();
+      localStorage.removeItem('restaurantName');
+      console.log('Cleared restaurant from localStorage');
       setUser(null);
       setScreen('auth');
       setRestaurantName('');
@@ -239,18 +230,14 @@ export default function App() {
     }
   };
 
-  // ===== CLIENT / PHONE =====
-
   const handlePhoneLookup = async () => {
     if (!clientPhone) {
       showToast('❌ Въведете телефонен номер', 'error');
       return;
     }
-
     try {
       setLoading(true);
       const client = await getClientByPhone(clientPhone);
-
       if (client) {
         setSelectedClient(client);
         setClientName(client.name);
@@ -270,25 +257,19 @@ export default function App() {
     }
   };
 
-  // ===== RESERVATIONS =====
-
   const handleAddReservation = async (e) => {
     e.preventDefault();
-
     if (!clientName || !clientPhone || !date || !time || !tableNumber) {
       showToast('❌ Попълнете всички полета', 'error');
       return;
     }
-
     const phoneClean = clientPhone.replace(/\s+/g, '');
     if (phoneClean.length < 6) {
       showToast('❌ Телефонният номер изглежда твърде кратък', 'error');
       return;
     }
-
     try {
       setLoading(true);
-
       await addReservation({
         restaurant_name: restaurantName,
         client_name: clientName,
@@ -300,7 +281,6 @@ export default function App() {
         description: description,
         status: 'pending'
       });
-
       if (selectedClient) {
         await updateClientVisits(
           selectedClient.id,
@@ -315,7 +295,6 @@ export default function App() {
           special_notes: ''
         });
       }
-
       showToast(`✓ Резервация за ${clientName} в ${time}`, 'success');
       resetReservationForm();
       setScreen('dashboard');
@@ -346,8 +325,6 @@ export default function App() {
     }
   };
 
-  // ===== UI RENDERS =====
-
   if (screen === 'loading') {
     return (
       <div className="container loading-screen">
@@ -367,7 +344,6 @@ export default function App() {
         <div className="auth-box">
           <h1>🍽️ ReservePro</h1>
           <p className="auth-subtitle">Управление на резервации за ресторанти</p>
-
           <div className="auth-tabs">
             <button
               className={`tab ${authTab === 'signin' ? 'active' : ''}`}
@@ -384,7 +360,6 @@ export default function App() {
               ✍️ Регистрация
             </button>
           </div>
-
           {authTab === 'signin' ? (
             <form onSubmit={handleSignIn}>
               <div className="form-group">
@@ -470,7 +445,6 @@ export default function App() {
               </button>
             </form>
           )}
-
           <div className="auth-hints">
             <p>💡 <strong>Бърз старт:</strong></p>
             <ul>
@@ -486,11 +460,9 @@ export default function App() {
 
   if (screen === 'dashboard') {
     const summary = getTodaySummary();
-
     return (
       <div className="container dashboard">
         {toast && <Toast {...toast} onClose={() => setToast(null)} />}
-
         <header className="header">
           <div className="header-left">
             <h1>📋 {restaurantName}</h1>
@@ -507,8 +479,6 @@ export default function App() {
             👤 Изход
           </button>
         </header>
-
-        {/* SUMMARY WIDGET - улучшено */}
         <div className="summary-widget">
           <div className="summary-card summary-card-total">
             <div className="summary-number">{summary.total}</div>
@@ -527,8 +497,6 @@ export default function App() {
             <div className="summary-label">Не дошли</div>
           </div>
         </div>
-
-        {/* ACTION BUTTONS - с иконки */}
         <div className="button-group">
           <button
             className="btn btn-primary btn-large"
@@ -548,8 +516,6 @@ export default function App() {
             🔍 Търси Клиент
           </button>
         </div>
-
-        {/* SEARCH BOX - подобрено */}
         <div className="search-box">
           <input
             type="text"
@@ -570,15 +536,12 @@ export default function App() {
             </button>
           )}
         </div>
-
-        {/* RESERVATIONS LIST */}
         <div className="reservations-list">
           <h2>
             {searchTerm
               ? `📌 Резултати: ${filteredReservations.length}`
               : `📅 Резервации (${filteredReservations.length})`}
           </h2>
-
           {reservationsLoading ? (
             <p className="empty">⏳ Зареждане на резервациите...</p>
           ) : filteredReservations.length === 0 ? (
@@ -648,8 +611,6 @@ export default function App() {
             </div>
           )}
         </div>
-
-        {/* MOBILE FAB */}
         <button
           className="fab"
           onClick={() => {
@@ -661,8 +622,6 @@ export default function App() {
         >
           ➕
         </button>
-
-        {/* MOBILE BOTTOM NAV */}
         <nav className="mobile-nav">
           <button
             className="nav-item active"
@@ -708,7 +667,6 @@ export default function App() {
     return (
       <div className="container add-reservation">
         {toast && <Toast {...toast} onClose={() => setToast(null)} />}
-
         <header className="header">
           <h1>➕ Нова Резервация</h1>
           <button
@@ -720,7 +678,6 @@ export default function App() {
             ← Назад
           </button>
         </header>
-
         <form onSubmit={handleAddReservation} className="form">
           <div className="form-group">
             <label>👤 Име на клиент</label>
@@ -733,14 +690,12 @@ export default function App() {
             />
             <small className="helper-text">Пълното име на гостът</small>
           </div>
-
           <PhoneInput
             value={clientPhone}
             onChange={setClientPhone}
             placeholder="+359 89 917 5548"
           />
           <small className="helper-text">Въведете номер и натиснете "Търси клиент"</small>
-
           <button
             type="button"
             className="btn btn-secondary"
@@ -751,7 +706,6 @@ export default function App() {
           >
             {loading ? '⏳ Търсене...' : '🔍 Търси клиент'}
           </button>
-
           {selectedClient && (
             <div className="client-info success-info">
               ✓ {selectedClient.name} от {selectedClient.city}
@@ -760,7 +714,6 @@ export default function App() {
                 : ` | ${selectedClient.total_visits} посещения`}
             </div>
           )}
-
           <div className="form-row">
             <div className="form-group">
               <label>📅 Дата</label>
@@ -781,7 +734,6 @@ export default function App() {
               />
             </div>
           </div>
-
           <div className="form-row">
             <div className="form-group">
               <label>👥 Брой хора</label>
@@ -805,7 +757,6 @@ export default function App() {
               <small className="helper-text">Как называте масата (напр: Маса 1, A3)</small>
             </div>
           </div>
-
           <div className="form-group">
             <label>📝 Специални бележки (алергия, рожден ден, и т.н.)</label>
             <textarea
@@ -818,13 +769,10 @@ export default function App() {
             <div className="char-count">{description.length}/200 символа</div>
             <small className="helper-text">Това ще видят служителите</small>
           </div>
-
           <button type="submit" className="btn btn-primary btn-large" disabled={loading}>
             {loading ? '⏳ Запазване...' : '💾 Запази Резервация'}
           </button>
         </form>
-
-        {/* MOBILE BOTTOM NAV */}
         <nav className="mobile-nav">
           <button
             className="nav-item"
@@ -863,7 +811,6 @@ export default function App() {
     return (
       <div className="container client-lookup">
         {toast && <Toast {...toast} onClose={() => setToast(null)} />}
-
         <header className="header">
           <h1>🔍 Търси Клиент</h1>
           <button
@@ -874,7 +821,6 @@ export default function App() {
             ← Назад
           </button>
         </header>
-
         <div className="form">
           <PhoneInput
             value={clientPhone}
@@ -882,7 +828,6 @@ export default function App() {
             placeholder="+359 89 917 5548"
           />
           <small className="helper-text">Въведете телефонния номер на клиента</small>
-
           <button
             className="btn btn-secondary"
             onClick={handlePhoneLookup}
@@ -892,7 +837,6 @@ export default function App() {
           >
             {loading ? '⏳ Търсене...' : '🔍 Търси'}
           </button>
-
           {selectedClient && (
             <div className="client-card">
               <div className="client-header">
@@ -939,8 +883,6 @@ export default function App() {
             </div>
           )}
         </div>
-
-        {/* MOBILE BOTTOM NAV */}
         <nav className="mobile-nav">
           <button
             className="nav-item"
